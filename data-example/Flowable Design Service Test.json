@@ -1,0 +1,131 @@
+{
+    "config": {
+        "baseUrl": "http://localhost:3000"
+    },
+    "key": "testService",
+    "name": "Test service",
+    "operations": [
+        {
+            "config": {
+                "method": "GET",
+                "url": "/data"
+            },
+            "inputParameters": [
+                {
+                    "displayName": "id",
+                    "name": "id",
+                    "queryParameter": true,
+                    "type": "integer"
+                }
+            ],
+            "key": "getData",
+            "name": "Get data",
+            "outputParameters": [
+                {
+                    "applyMappingConfig": "onSuccess",
+                    "displayName": "Name",
+                    "missingValueConfig": "ignore",
+                    "name": "name",
+                    "nullValueConfig": "setToNull",
+                    "type": "string"
+                },
+                {
+                    "applyMappingConfig": "onSuccess",
+                    "displayName": "Last Name",
+                    "missingValueConfig": "ignore",
+                    "name": "lastName",
+                    "nullValueConfig": "setToNull",
+                    "type": "string"
+                },
+                {
+                    "applyMappingConfig": "onSuccess",
+                    "displayName": "Age",
+                    "missingValueConfig": "ignore",
+                    "name": "age",
+                    "nullValueConfig": "setToNull",
+                    "type": "integer"
+                }
+            ],
+            "type": "search"
+        },
+        {
+            "config": {
+                "method": "POST",
+                "url": "/create"
+            },
+            "inputParameters": [
+                {
+                    "displayName": "Name",
+                    "name": "name",
+                    "type": "string"
+                },
+                {
+                    "displayName": "Last Name",
+                    "name": "lastName",
+                    "type": "string"
+                },
+                {
+                    "displayName": "Age",
+                    "name": "age",
+                    "type": "integer"
+                }
+            ],
+            "key": "create",
+            "name": "Create",
+            "outputParameters": [
+                {
+                    "applyMappingConfig": "onSuccess",
+                    "displayName": "id",
+                    "missingValueConfig": "ignore",
+                    "name": "id",
+                    "nullValueConfig": "setToNull",
+                    "type": "string"
+                }
+            ],
+            "type": "create"
+        },
+        {
+            "config": {
+                "method": "PUT",
+                "url": "/update"
+            },
+            "inputParameters": [
+                {
+                    "displayName": "id",
+                    "name": "id",
+                    "queryParameter": true,
+                    "type": "string"
+                },
+                {
+                    "displayName": "Name",
+                    "name": "name",
+                    "type": "string"
+                },
+                {
+                    "displayName": "Last Name",
+                    "name": "lastName",
+                    "type": "string"
+                },
+                {
+                    "displayName": "Age",
+                    "name": "age",
+                    "type": "integer"
+                }
+            ],
+            "key": "update",
+            "name": "Update",
+            "outputParameters": [
+                {
+                    "applyMappingConfig": "onSuccess",
+                    "displayName": "updated",
+                    "missingValueConfig": "ignore",
+                    "name": "updated",
+                    "nullValueConfig": "setToNull",
+                    "type": "boolean"
+                }
+            ],
+            "type": "search"
+        }
+    ],
+    "type": "REST"
+}

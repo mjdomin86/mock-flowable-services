@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::content})}">
+
+<body>
+    <div th:fragment="content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>Discovered Services</h2>
+            <div>
+                <form action="/sync" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-primary">Sync Services</button>
+                </form>
+                <a href="/export" class="btn btn-secondary ms-2">Export Config</a>
+                <button type="button" class="btn btn-success ms-2" data-bs-toggle="modal"
+                    data-bs-target="#importModal">Import Config</button>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4" th:each="service : ${services}">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title" th:text="${service.name}">Service Name</h5>
+                        <h6 class="card-subtitle mb-2 text-muted" th:text="${service.key}">Key</h6>
+                        <p class="card-text" th:text="${service.description}">Description</p>
+                        <a th:href="@{/services/{id}(id=${service.id})}" class="btn btn-outline-primary">View
+                            Operations</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12" th:if="${#lists.isEmpty(services)}">
+                <div class="alert alert-info">No services found. Click "Sync Services" to fetch from Flowable.</div>
+            </div>
+        </div>
+
+        <!-- Import Modal -->
+        <div class="modal fade" id="importModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form action="/import" method="post" enctype="multipart/form-data">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Import Configurations</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="file" name="file" class="form-control" required>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Import</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

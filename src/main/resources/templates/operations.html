@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::content})}">
+
+<body>
+    <div th:fragment="content">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/services">Services</a></li>
+                <li class="breadcrumb-item active" aria-current="page" th:text="${service.name}">Service</li>
+            </ol>
+        </nav>
+
+        <h2>Operations</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Method</th>
+                    <th>URL</th>
+                    <th>Inputs</th>
+                    <th>Mock Endpoint</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="op : ${operations}">
+                    <td th:text="${op.name}">Name</td>
+                    <td><span class="badge bg-secondary" th:text="${op.method}">GET</span></td>
+                    <td th:text="${op.url}">/url</td>
+                    <td>
+                        <ul class="list-unstyled mb-0" th:if="${op.inputs != null and op.inputs.size() > 0}">
+                            <li th:each="input : ${op.inputs}">
+                                <b th:text="${input.get('name').asText()}">param</b>
+                                <span class="text-muted small"
+                                    th:text="'(' + ${input.get('type').asText()} + ')'"></span>
+                            </li>
+                        </ul>
+                        <span th:if="${op.inputs == null or op.inputs.size() == 0}">-</span>
+                    </td>
+                    <td>
+                        <code th:text="${op.url}">/url</code>
+                    </td>
+                    <td>
+                        <a th:href="@{/operation/{id}/config(id=${op.id})}" class="btn btn-sm btn-primary">Configure
+                            Response</a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+
+</html>

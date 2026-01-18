@@ -1,0 +1,19 @@
+{
+    "properties": [
+        {
+            "name": "flowable.host",
+            "type": "java.lang.String",
+            "description": "Flowable Work Host"
+        },
+        {
+            "name": "flowable.username",
+            "type": "java.lang.String",
+            "description": "Username for Flowable Basic Auth"
+        },
+        {
+            "name": "flowable.password",
+            "type": "java.lang.String",
+            "description": "Password for Flowable Basic Auth"
+        }
+    ]
+}

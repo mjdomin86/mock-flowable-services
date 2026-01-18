@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::content})}">
+
+<body>
+    <div th:fragment="content">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/services">Services</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/services/{id}(id=${operation.serviceDefinition.id})}"
+                        th:text="${operation.serviceDefinition.name}">Service</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Configure <span
+                        th:text="${operation.name}">Op</span></li>
+            </ol>
+        </nav>
+
+        <h3>Mock Configuration for: <span th:text="${operation.name}"></span></h3>
+        <p class="text-muted">
+            <span th:text="${operation.method}">POST</span>
+            <span th:text="${operation.url}">/url</span>
+        </p>
+
+        <form th:action="@{/operation/{id}/config(id=${operation.id})}" th:object="${config}" method="post">
+            <div class="mb-3">
+                <label class="form-label">HTTP Status Code</label>
+                <input type="number" class="form-control" th:field="*{httpStatus}" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Response Body (JSON)</label>
+                <textarea class="form-control" th:field="*{customResponseBody}" rows="10"
+                    placeholder="Enter custom JSON response here. Leave empty to use auto-generated data based on output parameters."></textarea>
+                <div class="form-text">
+                    Expected Output Parameters: <code th:text="${operation.outputParametersJson}"></code>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success">Save Configuration</button>
+            <a th:href="@{/services/{id}(id=${operation.serviceDefinition.id})}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</body>
+
+</html>
