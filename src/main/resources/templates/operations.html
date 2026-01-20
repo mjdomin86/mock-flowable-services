@@ -19,7 +19,7 @@
                     <th>URL</th>
                     <th>Inputs</th>
                     <th>Mock Endpoint</th>
-                    <th>Actions</th>
+                    <th style="width: 40%">Actions & Rules</th>
                 </tr>
             </thead>
             <tbody>
@@ -41,8 +41,59 @@
                         <code th:text="${op.url}">/url</code>
                     </td>
                     <td>
-                        <a th:href="@{/operation/{id}/config(id=${op.id})}" class="btn btn-sm btn-primary">Configure
-                            Response</a>
+                        <div class="mb-2">
+                            <a th:href="@{/operation/{id}/config(id=${op.id})}" class="btn btn-sm btn-primary">Configure Default Response</a>
+                        </div>
+
+                        <!-- Rule Management Section -->
+                        <div class="card card-body bg-light p-2" th:if="${op.inputs != null and op.inputs.size() > 0}">
+                            <h6 class="card-title">Rules</h6>
+                            
+                            <!-- Existing Rules Table -->
+                            <table class="table table-sm table-bordered bg-white" th:if="${not #lists.isEmpty(op.rules)}">
+                                <thead>
+                                    <tr>
+                                        <th>Priority</th>
+                                        <th>Condition</th>
+                                        <th>Status</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="rule : ${op.rules}">
+                                        <td th:text="${rule.priority}">1</td>
+                                        <td th:text="${rule.conditions}">{}</td>
+                                        <td th:text="${rule.responseStatus}">200</td>
+                                        <td>
+                                            <a th:href="@{/rules/{id}/delete(id=${rule.id})}" class="text-danger">×</a>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div th:if="${#lists.isEmpty(op.rules)}" class="text-muted small mb-2">No rules defined</div>
+
+                            <!-- Add Rule Form -->
+                             <details>
+                                <summary class="btn btn-xs btn-outline-secondary mb-2">Add Rule</summary>
+                                <form th:action="@{/operations/{id}/rules(id=${op.id})}" method="post">
+                                    <div class="mb-1">
+                                        <input type="text" name="conditions" class="form-control form-control-sm" placeholder='{"param": "value"}' required>
+                                    </div>
+                                    <div class="row g-1 mb-1">
+                                        <div class="col">
+                                            <input type="number" name="responseStatus" class="form-control form-control-sm" value="400" placeholder="Status" required>
+                                        </div>
+                                        <div class="col">
+                                            <input type="number" name="priority" class="form-control form-control-sm" value="10" placeholder="Priority">
+                                        </div>
+                                    </div>
+                                    <div class="mb-1">
+                                        <textarea name="responseBody" class="form-control form-control-sm" rows="2" placeholder='{"error": "msg"}'></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-success w-100">Save Rule</button>
+                                </form>
+                            </details>
+                        </div>
                     </td>
                 </tr>
             </tbody>

@@ -5,6 +5,7 @@ import com.example.mockservice.domain.RequestLog;
 import com.example.mockservice.domain.ServiceDefinition;
 import com.example.mockservice.domain.ServiceOperation;
 import com.example.mockservice.repository.MockConfigurationRepository;
+import com.example.mockservice.repository.MockRuleRepository;
 import com.example.mockservice.repository.RequestLogRepository;
 import com.example.mockservice.repository.ServiceOperationRepository;
 import com.example.mockservice.util.RandomDataGenerator;
@@ -27,18 +28,18 @@ public class MockExecutionService {
 
     private final ServiceOperationRepository serviceOperationRepository;
     private final MockConfigurationRepository mockConfigurationRepository;
+    private final MockRuleRepository mockRuleRepository;
     private final RequestLogRepository requestLogRepository;
     private final RandomDataGenerator randomDataGenerator;
     private final ObjectMapper objectMapper;
 
     @Transactional
-    public ResponseEntity<Object> executeMock(String method, String path, String body) {
+    public ResponseEntity<Object> executeMock(String method, String path, String body,
+            java.util.Map<String, String[]> queryParams) {
         // 1. Find Operation Globally
-        // Check for exact match first
         List<ServiceOperation> ops = serviceOperationRepository.findByMethodAndUrl(method, path);
 
         if (ops.isEmpty()) {
-            // Unmatched request
             logRequest("UNKNOWN", method + " " + path, body, 404, "Operation not found");
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Operation not found for path: " + path);
         }
@@ -71,11 +72,63 @@ public class MockExecutionService {
 
         log.debug("Executing mock for method: {}, path: {}", method, path);
 
-        // 3. Apply Configuration (if any)
         int status = 200;
         Object responseBody = null;
 
-        if (selectedConfig != null) {
+        // 3. Check for Rule-Based Overrides
+        List<com.example.mockservice.domain.MockRule> rules = mockRuleRepository
+                .findByServiceOperationIdOrderByPriorityAsc(op.getId());
+
+        if (!rules.isEmpty()) {
+            JsonNode requestData = null;
+
+            // Try to parse body first (for POST/PUT/PATCH)
+            if (body != null && !body.isEmpty()) {
+                try {
+                    requestData = objectMapper.readTree(body);
+                } catch (Exception e) {
+                    log.warn("Failed to parse request body for rule matching", e);
+                }
+            }
+
+            // If no body, create JSON from query parameters (for GET/DELETE)
+            if (requestData == null && queryParams != null && !queryParams.isEmpty()) {
+                try {
+                    java.util.Map<String, String> flatParams = new java.util.HashMap<>();
+                    for (java.util.Map.Entry<String, String[]> entry : queryParams.entrySet()) {
+                        // Take first value if multiple values exist
+                        if (entry.getValue() != null && entry.getValue().length > 0) {
+                            flatParams.put(entry.getKey(), entry.getValue()[0]);
+                        }
+                    }
+                    requestData = objectMapper.valueToTree(flatParams);
+                } catch (Exception e) {
+                    log.warn("Failed to convert query params for rule matching", e);
+                }
+            }
+
+            // Match rules against request data
+            if (requestData != null) {
+                for (com.example.mockservice.domain.MockRule rule : rules) {
+                    if (isRuleMatch(rule, requestData)) {
+                        log.debug("Matched rule: {} (priority={})", rule.getId(), rule.getPriority());
+                        status = rule.getResponseStatus();
+                        if (rule.getResponseBody() != null && !rule.getResponseBody().isEmpty()) {
+                            try {
+                                responseBody = objectMapper.readTree(rule.getResponseBody());
+                            } catch (Exception e) {
+                                responseBody = rule.getResponseBody();
+                            }
+                        }
+                        selectedConfig = null; // Rule takes precedence
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 4. Apply Static Configuration (if no rule matched)
+        if (responseBody == null && selectedConfig != null) {
             MockConfiguration config = selectedConfig;
             log.debug("Applying config: status={}, body={}", config.getHttpStatus(), config.getCustomResponseBody());
             status = config.getHttpStatus();
@@ -88,28 +141,59 @@ public class MockExecutionService {
             }
         }
 
-        // 3. Generate Random Data if no custom body
+        // 5. Generate Random Data if no custom body
         if (responseBody == null) {
-            // Use stored default response body if available (Static Random Data)
             if (op.getDefaultResponseBody() != null && !op.getDefaultResponseBody().isEmpty()) {
                 try {
                     responseBody = objectMapper.readTree(op.getDefaultResponseBody());
                 } catch (Exception e) {
                     log.warn("Failed to parse default response body for operation {}", op.getId(), e);
-                    // Fallback to generation if parsing fails
                     responseBody = randomDataGenerator.generateReflectedOutput(op.getOutputParametersJson());
                 }
             } else {
-                // Fallback for legacy operations without stored default body
                 responseBody = randomDataGenerator.generateReflectedOutput(op.getOutputParametersJson());
             }
         }
 
-        // 4. Log
+        // 6. Log
         logRequest(service != null ? service.getName() : "UNKNOWN", op.getName() + " (" + method + " " + path + ")",
                 body, status, responseBody);
 
         return ResponseEntity.status(status).body(responseBody);
+    }
+
+    private boolean isRuleMatch(com.example.mockservice.domain.MockRule rule, JsonNode requestJson) {
+        try {
+            if (rule.getConditions() == null || rule.getConditions().isEmpty()) {
+                return true;
+            }
+
+            // Use Map conversion to avoid JsonNode iteration API issues
+            java.util.Map<String, Object> conditions = objectMapper.convertValue(
+                    objectMapper.readTree(rule.getConditions()),
+                    new tools.jackson.core.type.TypeReference<java.util.Map<String, Object>>() {
+                    });
+
+            for (java.util.Map.Entry<String, Object> entry : conditions.entrySet()) {
+                String key = entry.getKey();
+                // Simple equality check for now
+                String expectedValue = String.valueOf(entry.getValue());
+
+                if (!requestJson.has(key))
+                    return false;
+
+                // Safe string conversion
+                JsonNode actualNode = requestJson.get(key);
+                String actualValue = actualNode.isValueNode() ? actualNode.asString() : actualNode.toString();
+
+                if (!actualValue.equals(expectedValue))
+                    return false;
+            }
+            return true;
+        } catch (Exception e) {
+            log.error("Error evaluating rule conditions", e);
+        }
+        return false;
     }
 
     private void logRequest(String serviceName, String operationName, String requestBody, int status,
@@ -129,8 +213,37 @@ public class MockExecutionService {
 
             requestLogRepository.save(log);
         } catch (Exception e) {
-            // Don't fail the request if logging fails
             log.error("Failed to save request log", e);
         }
+    }
+
+    @Transactional
+    public void addRule(String operationId, com.example.mockservice.domain.MockRule rule) {
+        ServiceOperation op = serviceOperationRepository.findById(operationId)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid operation Id: " + operationId));
+
+        // Create a new rule entity to avoid detached entity issues
+        com.example.mockservice.domain.MockRule newRule = new com.example.mockservice.domain.MockRule();
+        newRule.setServiceOperation(op);
+        newRule.setConditions(rule.getConditions());
+        newRule.setResponseStatus(rule.getResponseStatus());
+        newRule.setResponseBody(rule.getResponseBody());
+        newRule.setPriority(rule.getPriority() == 0 ? 10 : rule.getPriority());
+
+        // Save the new rule
+        mockRuleRepository.save(newRule);
+    }
+
+    @Transactional
+    public String deleteRule(String ruleId) {
+        com.example.mockservice.domain.MockRule rule = mockRuleRepository.findById(ruleId)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid rule Id: " + ruleId));
+
+        String serviceId = rule.getServiceOperation().getServiceDefinition().getId();
+
+        // Delete rule directly
+        mockRuleRepository.delete(rule);
+
+        return serviceId;
     }
 }

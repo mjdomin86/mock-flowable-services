@@ -46,12 +46,13 @@ class MockExecutionServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        // Assuming the constructor of MockExecutionService has been updated to include
-        // ServiceOperationRepository
-        // and that objectMapper is now injected as a mock.
+        // Using the real service with mocks
+        // MockExecutionService(ServiceOperationRepository, MockConfigurationRepository,
+        // MockRuleRepository, RequestLogRepository, RandomDataGenerator, ObjectMapper)
         mockExecutionService = new MockExecutionService(
-                serviceOperationRepository, // Added
+                serviceOperationRepository,
                 mockConfigurationRepository,
+                org.mockito.Mockito.mock(com.example.mockservice.repository.MockRuleRepository.class),
                 requestLogRepository,
                 randomDataGenerator,
                 objectMapper);
@@ -89,7 +90,7 @@ class MockExecutionServiceTest {
         when(randomDataGenerator.generateReflectedOutput(any()))
                 .thenReturn(tools.jackson.databind.node.JsonNodeFactory.instance.objectNode());
 
-        ResponseEntity<Object> response = mockExecutionService.executeMock("GET", "/test", null);
+        ResponseEntity<Object> response = mockExecutionService.executeMock("GET", "/test", null, null);
 
         assertEquals(200, response.getStatusCode().value());
         verify(requestLogRepository).save(any(RequestLog.class));
@@ -99,7 +100,7 @@ class MockExecutionServiceTest {
     void executeMock_OperationNotFound_Returns404() {
         when(serviceOperationRepository.findByMethodAndUrl(any(), any())).thenReturn(List.of());
 
-        ResponseEntity<Object> response = mockExecutionService.executeMock("GET", "/unknown", null);
+        ResponseEntity<Object> response = mockExecutionService.executeMock("GET", "/unknown", null, null);
 
         assertEquals(404, response.getStatusCode().value());
     }
@@ -127,7 +128,7 @@ class MockExecutionServiceTest {
         // Spy uses real ObjectMapper, so readTree works automatically on valid JSON
         JsonNode mockJson = objectMapper.readTree("{\"status\":\"created\"}");
 
-        ResponseEntity<Object> response = mockExecutionService.executeMock("POST", "/api/data", "{}");
+        ResponseEntity<Object> response = mockExecutionService.executeMock("POST", "/api/data", "{}", null);
 
         assertEquals(201, response.getStatusCode().value());
         assertEquals(mockJson, response.getBody());

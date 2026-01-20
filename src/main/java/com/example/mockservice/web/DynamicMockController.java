@@ -29,8 +29,11 @@ public class DynamicMockController {
         // Use fullPath directly as it should match the operation URL (e.g. /data)
         String body = request.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
 
-        log.debug("Received mock request for method: {}, path: {}", method, fullPath);
+        // Extract query parameters for rule matching
+        java.util.Map<String, String[]> queryParams = request.getParameterMap();
 
-        return mockExecutionService.executeMock(method, fullPath, body);
+        log.debug("Received mock request for method: {}, path: {}, params: {}", method, fullPath, queryParams);
+
+        return mockExecutionService.executeMock(method, fullPath, body, queryParams);
     }
 }

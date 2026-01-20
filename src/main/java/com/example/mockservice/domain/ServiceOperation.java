@@ -32,6 +32,9 @@ public class ServiceOperation {
     @lombok.ToString.Exclude
     private ServiceDefinition serviceDefinition;
 
+    @OneToMany(mappedBy = "serviceOperation", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<MockRule> rules = new java.util.ArrayList<>();
+
     @Transient
     private static final tools.jackson.databind.ObjectMapper mapper = new tools.jackson.databind.ObjectMapper();
 

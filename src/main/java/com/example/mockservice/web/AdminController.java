@@ -17,12 +17,16 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Optional;
 
+import com.example.mockservice.domain.MockRule;
+import com.example.mockservice.repository.MockRuleRepository;
+
 @Controller
 @RequiredArgsConstructor
 @lombok.extern.slf4j.Slf4j
 public class AdminController {
 
     private final FlowableClientService flowableClientService;
+    private final com.example.mockservice.service.MockExecutionService mockExecutionService;
     private final ServiceDefinitionRepository serviceDefinitionRepository;
     private final ServiceOperationRepository serviceOperationRepository;
     private final MockConfigurationRepository mockConfigurationRepository;
@@ -81,9 +85,6 @@ public class AdminController {
     @PostMapping("/operation/{operationId}/config")
     public String saveConfiguration(@PathVariable String operationId, @ModelAttribute MockConfiguration config,
             RedirectAttributes redirectAttributes) {
-        // Ensure ID linkage logic if needed, but assuming config object carries basic
-        // fields
-        // We need to fetch existing to update or verify operationId
 
         log.info("Saving config for operationId: {}. received status: {}", operationId, config.getHttpStatus());
 
@@ -104,6 +105,20 @@ public class AdminController {
         ServiceOperation op = serviceOperationRepository.findById(operationId).orElseThrow();
         String serviceId = op.getServiceDefinition().getId();
 
+        return "redirect:/services/" + serviceId;
+    }
+
+    @PostMapping("/operations/{id}/rules")
+    public String addRule(@PathVariable String id, @ModelAttribute MockRule rule) {
+        mockExecutionService.addRule(id, rule);
+        // Need serviceId for redirect. Could be returned by addRule or fetched.
+        ServiceOperation op = serviceOperationRepository.findById(id).orElseThrow();
+        return "redirect:/services/" + op.getServiceDefinition().getId();
+    }
+
+    @GetMapping("/rules/{id}/delete")
+    public String deleteRule(@PathVariable String id) {
+        String serviceId = mockExecutionService.deleteRule(id);
         return "redirect:/services/" + serviceId;
     }
 
