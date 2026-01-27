@@ -36,8 +36,23 @@ public class MockExecutionService {
     @Transactional
     public ResponseEntity<Object> executeMock(String method, String path, String body,
             java.util.Map<String, String[]> queryParams) {
-        // 1. Find Operation Globally
+        // 1. Find Operation - Try exact match first, then pattern matching
         List<ServiceOperation> ops = serviceOperationRepository.findByMethodAndUrl(method, path);
+
+        // If no exact match, try pattern matching for path variables
+        if (ops.isEmpty()) {
+            log.debug("No exact match for path: {}, trying pattern matching", path);
+            List<ServiceOperation> allOpsForMethod = serviceOperationRepository.findByMethod(method);
+
+            // Create a mutable list for pattern matching results
+            ops = new java.util.ArrayList<>();
+            for (ServiceOperation op : allOpsForMethod) {
+                if (com.example.mockservice.util.PathMatcher.matches(op.getUrl(), path)) {
+                    ops.add(op);
+                    log.debug("Pattern matched: {} -> {}", op.getUrl(), path);
+                }
+            }
+        }
 
         if (ops.isEmpty()) {
             logRequest("UNKNOWN", method + " " + path, body, 404, "Operation not found");
@@ -49,7 +64,7 @@ public class MockExecutionService {
         ServiceOperation selectedOp = null;
         MockConfiguration selectedConfig = null;
 
-        // 1. Try to find a configured operation among matches
+        // 2. Try to find a configured operation among matches
         for (ServiceOperation op : ops) {
             Optional<MockConfiguration> configOpt = mockConfigurationRepository.findByOperationId(op.getId());
             if (configOpt.isPresent()) {
@@ -60,7 +75,7 @@ public class MockExecutionService {
             }
         }
 
-        // 2. Fallback to first available if no configuration found
+        // 3. Fallback to first available if no configuration found
         if (selectedOp == null) {
             selectedOp = ops.get(0);
             log.debug("No configuration found for any matching operation. defaulting to: {} ({})", selectedOp.getName(),
@@ -71,6 +86,13 @@ public class MockExecutionService {
         ServiceDefinition service = op.getServiceDefinition();
 
         log.debug("Executing mock for method: {}, path: {}", method, path);
+
+        // Extract path variables if the operation URL contains them
+        java.util.Map<String, String> pathVariables = com.example.mockservice.util.PathMatcher
+                .extractPathVariables(op.getUrl(), path);
+        if (!pathVariables.isEmpty()) {
+            log.debug("Extracted path variables: {}", pathVariables);
+        }
 
         int status = 200;
         Object responseBody = null;
@@ -91,19 +113,44 @@ public class MockExecutionService {
                 }
             }
 
-            // If no body, create JSON from query parameters (for GET/DELETE)
-            if (requestData == null && queryParams != null && !queryParams.isEmpty()) {
+            // If no body, create JSON from query parameters and path variables
+            if (requestData == null) {
                 try {
-                    java.util.Map<String, String> flatParams = new java.util.HashMap<>();
-                    for (java.util.Map.Entry<String, String[]> entry : queryParams.entrySet()) {
-                        // Take first value if multiple values exist
-                        if (entry.getValue() != null && entry.getValue().length > 0) {
-                            flatParams.put(entry.getKey(), entry.getValue()[0]);
+                    java.util.Map<String, String> combinedParams = new java.util.HashMap<>();
+
+                    // Add query parameters
+                    if (queryParams != null && !queryParams.isEmpty()) {
+                        for (java.util.Map.Entry<String, String[]> entry : queryParams.entrySet()) {
+                            // Take first value if multiple values exist
+                            if (entry.getValue() != null && entry.getValue().length > 0) {
+                                combinedParams.put(entry.getKey(), entry.getValue()[0]);
+                            }
                         }
                     }
-                    requestData = objectMapper.valueToTree(flatParams);
+
+                    // Add path variables
+                    if (!pathVariables.isEmpty()) {
+                        combinedParams.putAll(pathVariables);
+                    }
+
+                    if (!combinedParams.isEmpty()) {
+                        requestData = objectMapper.valueToTree(combinedParams);
+                    }
                 } catch (Exception e) {
-                    log.warn("Failed to convert query params for rule matching", e);
+                    log.warn("Failed to convert query params and path variables for rule matching", e);
+                }
+            } else {
+                // If we have body data, add path variables to it for rule matching
+                if (!pathVariables.isEmpty()) {
+                    try {
+                        java.util.Map<String, Object> requestDataMap = objectMapper.convertValue(requestData,
+                                new tools.jackson.core.type.TypeReference<java.util.Map<String, Object>>() {
+                                });
+                        requestDataMap.putAll(pathVariables);
+                        requestData = objectMapper.valueToTree(requestDataMap);
+                    } catch (Exception e) {
+                        log.warn("Failed to merge path variables with request body", e);
+                    }
                 }
             }
 

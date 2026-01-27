@@ -18,6 +18,9 @@ public interface ServiceOperationRepository extends JpaRepository<ServiceOperati
     // Spring Data JPA query derivation
     List<ServiceOperation> findByMethodAndUrl(String method, String url);
 
+    // Find all operations by HTTP method (for path pattern matching)
+    List<ServiceOperation> findByMethod(String method);
+
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "rules" })
     Optional<ServiceOperation> findWithRulesById(String id);
 }
